@@ -33,9 +33,8 @@ class PayHereMqttService : Service() {
         var isDebug: Boolean = false
         var access: String = ""
         var sid: String = ""
-        var customerSN: String = ""
-        var paxModel: String = ""
-        var paxCsn: String = ""
+        var modelName: String = ""
+        var sn: String = ""
         private var gson = Gson()
         private val coroutineExceptionHandler =
             CoroutineExceptionHandler { _, exception ->
@@ -69,9 +68,8 @@ class PayHereMqttService : Service() {
             access: String,
             appIdentifier: String,
             sid: String,
-            customerSN: String,
-            paxModel: String,
-            paxCsn: String,
+            modelName: String,
+            sn: String,
             isDebug: Boolean,
         ) {
 
@@ -80,18 +78,16 @@ class PayHereMqttService : Service() {
             editor.putString("access", access)
             editor.putString("appIdentifier", appIdentifier)
             editor.putString("sid", sid)
-            editor.putString("customerSN", customerSN)
-            editor.putString("paxModel", paxModel)
-            editor.putString("paxCsn", paxCsn)
+            editor.putString("modelName", modelName)
+            editor.putString("sn", sn)
             editor.putBoolean("isDebug", isDebug)
             editor.apply()
 
             PayHereMqttService.access = access
             PayHereMqttService.appIdentifier = appIdentifier
             PayHereMqttService.sid = sid
-            PayHereMqttService.customerSN = customerSN
-            PayHereMqttService.paxModel = paxModel
-            PayHereMqttService.paxCsn = paxCsn
+            PayHereMqttService.modelName = modelName
+            PayHereMqttService.sn = sn
             PayHereMqttService.isDebug = isDebug
             if (!isServiceRunning(PayHereMqttService::class.java, ctx)) {
                 val service = Intent(ctx, PayHereMqttService::class.java)
@@ -126,9 +122,8 @@ class PayHereMqttService : Service() {
         initService(
             access = access,
             sid = sid,
-            customerSN = customerSN,
-            paxModel = paxModel,
-            paxCsn = paxCsn,
+            modelName = modelName,
+            sn = sn,
             isDebug = isDebug,
         )
 //        return super.onStartCommand(intent, flags, startId)
@@ -159,9 +154,8 @@ class PayHereMqttService : Service() {
     private fun initService(
         access: String,
         sid: String,
-        customerSN: String,
-        paxModel: String,
-        paxCsn: String,
+        modelName: String,
+        sn: String,
         isDebug: Boolean,
     ) {
         val deviceIdLong = getDeviceId(this).hashCode()
@@ -169,9 +163,8 @@ class PayHereMqttService : Service() {
         initRxMqtt(
             access = access,
             sid = sid,
-            customerSN = customerSN,
-            paxModel = paxModel,
-            paxCsn = paxCsn,
+            modelName = modelName,
+            sn = sn,
             isDebug = isDebug,
         )
     }
@@ -179,25 +172,22 @@ class PayHereMqttService : Service() {
     private fun initRxMqtt(
         access: String,
         sid: String,
-        customerSN: String,
-        paxModel: String,
-        paxCsn: String,
+        modelName: String,
+        sn: String,
         isDebug: Boolean,
     ) {
         log.e("sid: $sid")
         var finalAccess = access
         var finalSid = sid
-        var finalCustomerSN = customerSN
-        var finalPaxModel = paxModel
-        var finalPaxCsn = paxCsn
+        var finalModelName = modelName
+        var finalSn = sn
         var finalIsDebug = isDebug
         if (finalSid.isEmpty()){
             val sharedPreferences: SharedPreferences = getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
             finalSid = sharedPreferences.getString("sid", "")?:""
             finalAccess = sharedPreferences.getString("access", "")?:""
-            finalCustomerSN = sharedPreferences.getString("customerSN", "")?:""
-            finalPaxModel = sharedPreferences.getString("paxModel", "")?:""
-            finalPaxCsn = sharedPreferences.getString("paxCsn", "")?:""
+            finalModelName = sharedPreferences.getString("modelName", "")?:""
+            finalSn = sharedPreferences.getString("sn", "")?:""
             finalIsDebug = sharedPreferences.getBoolean("isDebug", false)
             if (finalAccess.isEmpty()) {
                 return
@@ -225,8 +215,8 @@ class PayHereMqttService : Service() {
                 access = finalAccess,
                 sid = finalSid,
 //                reqMqtt = mqttMessage,
-                csn = finalPaxCsn,
-                model = finalPaxModel ?: "",
+                csn = finalSn,
+                model = finalModelName ?: "",
                 clientEndpoint = if (finalIsDebug) "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
             )
         ) {
