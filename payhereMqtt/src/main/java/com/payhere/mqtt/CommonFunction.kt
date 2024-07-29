@@ -291,4 +291,15 @@ object CommonFunction {
         }
         return 0
     }
+
+    fun isAppRunning(context: Context, packageName: String): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningAppProcesses = activityManager.runningAppProcesses
+        for (process in runningAppProcesses) {
+            if (process.processName == packageName) {
+                return true
+            }
+        }
+        return false
+    }
 }

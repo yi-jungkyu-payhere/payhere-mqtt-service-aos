@@ -110,13 +110,13 @@ class PayHereMqttService : Service() {
         }
 
         fun stopService(ctx: Context) {
-            //        scope.cancel()
-//        PayhereMqttFactory.clearMqtt()
             val sharedPreferences: SharedPreferences = ctx.getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
             val editor = sharedPreferences.edit()
             editor.clear()
             editor.apply()
             val service = Intent(ctx, PayHereMqttService::class.java)
+            scope.cancel()
+            PayhereMqttFactory.clearMqtt()
             ctx.stopService(service)
         }
     }
@@ -135,18 +135,22 @@ class PayHereMqttService : Service() {
     }
 
     override fun onDestroy() {
-        scope.cancel()
-        PayhereMqttFactory.clearMqtt()
+        stopMqttService()
         super.onDestroy()
     }
 
-    //앱 종료시 같이 종료
+    private fun stopMqttService(){
+        scope.cancel()
+        PayhereMqttFactory.clearMqtt()
+        stopForeground(true) // 포그라운드 서비스 중지
+        stopSelf() // 서비스 중지 코드
+    }
+
+//    //앱 종료시 같이 종료
 //    override fun onTaskRemoved(rootIntent: Intent?) {
 //        super.onTaskRemoved(rootIntent)
 //        // Stop the service and clear resources
-//        scope.cancel()
-//        PayhereMqttFactory.clearMqtt()
-//        stopSelf()
+//        stopMqttService()
 //    }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -196,9 +200,8 @@ class PayHereMqttService : Service() {
         var finalSn = sn
         var finalIsDebug = isDebug
         if (finalSid.isEmpty()){
-             stopForeground(true) // 포그라운드 서비스 중지
-             stopSelf() // 서비스 중지 코드
-            return
+//            stopMqttService()
+//            return
             val sharedPreferences: SharedPreferences = getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
             finalSid = sharedPreferences.getString("sid", "")?:""
             finalAccess = sharedPreferences.getString("access", "")?:""

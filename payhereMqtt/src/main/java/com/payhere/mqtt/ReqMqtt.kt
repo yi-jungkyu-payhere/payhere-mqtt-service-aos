@@ -73,6 +73,7 @@ data class MqttDeviceStatus(
     @SerializedName("battery_level") val batteryLevel: Int? = null,
     @SerializedName("wifi_signal_strength") val wifiSignalStrength: Int? = null,
     @SerializedName("cpu_status") val cpuStatus: String? = null,
+    @SerializedName("is_app_running") val isAppRunning: String? = null,
 )
 data class MqttVersionInfo(
     @SerializedName("app_version") val appVersion: String? = null,

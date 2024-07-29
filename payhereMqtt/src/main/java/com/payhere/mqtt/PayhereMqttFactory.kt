@@ -189,6 +189,7 @@ object PayhereMqttFactory {
                         batteryLevel = CommonFunction.getBatteryPercentage(context),
                         wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
                         cpuStatus = "${cpu}",
+                        isAppRunning = "${CommonFunction.isAppRunning(context,"in.payhre.dev")}",
                     ),
                     mqttVersionInfo =
                     MqttVersionInfo(
