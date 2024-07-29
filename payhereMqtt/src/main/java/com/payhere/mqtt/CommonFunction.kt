@@ -295,9 +295,21 @@ object CommonFunction {
     fun isAppRunning(context: Context, packageName: String): ArrayList<String> {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val runningAppProcesses = activityManager.runningAppProcesses
-        val arr= ArrayList<String>()
+        val runningTasks = activityManager.getRunningTasks(Int.MAX_VALUE)
+        val arr = ArrayList<String>()
         for (process in runningAppProcesses) {
+            log.e("process: ${process.processName}")
+            log.e("importance: ${process.importance}")
             arr.add(process.processName)
+//            if (process.processName == packageName) {
+//                val importance = process.importance
+                if (importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+//                    val processName = process.processName
+//                    if (processName == "$packageName.$mainActivityName") {
+//                        return true
+//                    }
+//                }
+//            }
 //            if (process.processName == packageName) {
 //                return true
 //            }
