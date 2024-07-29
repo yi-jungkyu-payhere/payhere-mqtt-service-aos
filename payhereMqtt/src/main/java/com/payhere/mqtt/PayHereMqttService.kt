@@ -245,7 +245,7 @@ class PayHereMqttService : Service() {
 //                reqMqtt = mqttMessage,
                 csn = finalSn,
                 model = finalModelName ?: "",
-                finalPakegeName = finalPakegeName ?: "",
+                pakegeName = finalPakegeName ?: "",
                 clientEndpoint = if (finalIsDebug) "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
             )
         ) {

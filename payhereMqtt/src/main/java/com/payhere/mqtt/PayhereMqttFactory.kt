@@ -163,7 +163,8 @@ object PayhereMqttFactory {
 
     fun startCycleStatus(
         delay: Long,
-        context: Context
+        context: Context,
+        pakegeName: String,
     ) {
         log.e("delay: $delay")
         log.e("topicStatus: ${topicStatus}")
@@ -180,7 +181,7 @@ object PayhereMqttFactory {
                 val reqMqttStatusData = ReqMqttStatusData(
 //                    mqttAppStatus =
                     MqttAppStatus(
-                        isActive = CommonFunction.isAppRunning(context,"finalPakegeName"),
+                        isActive = CommonFunction.isAppRunning(context,pakegeName),
                     ),
                     mqttDeviceStatus =
                     MqttDeviceStatus(
@@ -235,7 +236,7 @@ object PayhereMqttFactory {
         sid: String,
         csn: String,
         model: String,
-        finalPakegeName: String,
+        pakegeName: String,
         clientEndpoint: String = "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com",
         reqMqtt: ReqMqtt? = null,
     ): Boolean {
@@ -462,6 +463,7 @@ object PayhereMqttFactory {
                         startCycleStatus(
                             delay = 10,
                             context = context,
+                            pakegeName = pakegeName
                         )
 
 //                        subscribeTopics(basicTopics)
