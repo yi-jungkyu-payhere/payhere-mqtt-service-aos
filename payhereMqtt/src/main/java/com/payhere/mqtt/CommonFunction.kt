@@ -1,13 +1,14 @@
 package com.payhere.mqtt
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
-import android.os.Build
+import android.os.Debug
+import android.os.Handler
+import android.os.Looper
 import android.preference.PreferenceManager
 import android.view.KeyEvent
 import kotlinx.coroutines.CoroutineScope
@@ -24,7 +25,6 @@ import java.net.SocketException
 import kotlin.system.exitProcess
 
 object CommonFunction {
-
     fun getLocalIPAddress(): String? {
         try {
             val en = NetworkInterface.getNetworkInterfaces()
@@ -90,7 +90,7 @@ object CommonFunction {
         }
     }
 
-    fun getMemoryUse() : String{
+    fun getMemoryUse(): String {
         val runtime = Runtime.getRuntime()
         val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
         val freeMemory = runtime.freeMemory() / 1024 / 1024
@@ -103,7 +103,7 @@ object CommonFunction {
         return usedMemory.toString()
     }
 
-    fun getStorageUse() : Int {
+    fun getStorageUse(): Int {
         val freeSpace = Runtime.getRuntime().freeMemory()
         val totalSpace = Runtime.getRuntime().totalMemory()
         val usedSpace = totalSpace - freeSpace
@@ -112,6 +112,7 @@ object CommonFunction {
         log.d("Storage", "Total Storage: $totalSpace")
         return freeSpace.toInt()
     }
+
     fun getBatteryPercentage(context: Context): Int {
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -209,15 +210,20 @@ object CommonFunction {
         }
     }
 
-    fun deleteDirFlow(dir: File?): Flow<Boolean> = flow {
-        emit(dir != null && dir.deleteRecursively())
-    }
+    fun deleteDirFlow(dir: File?): Flow<Boolean> =
+        flow {
+            emit(dir != null && dir.deleteRecursively())
+        }
 
     fun clearStorageWithFlow(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Clear SharedPreferences
-                PreferenceManager.getDefaultSharedPreferences(context).edit().clear().apply();
+                PreferenceManager
+                    .getDefaultSharedPreferences(context)
+                    .edit()
+                    .clear()
+                    .apply()
 
                 // Delete cache directory
                 val cacheDir: File = context.cacheDir
@@ -251,7 +257,7 @@ object CommonFunction {
     }
 
     fun keyCodeToNumber(keyCode: Int): String {
-        return when(keyCode) {
+        return when (keyCode) {
             KeyEvent.KEYCODE_0 -> return "0"
             KeyEvent.KEYCODE_1 -> return "1"
             KeyEvent.KEYCODE_2 -> return "2"
@@ -267,5 +273,36 @@ object CommonFunction {
             KeyEvent.KEYCODE_DEL -> return "DEL"
             else -> return ""
         }
+    }
+
+
+    fun initCpuUsageMonitor(context: Context) {
+        activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    }
+    private val handler = Handler(Looper.getMainLooper())
+    private val updateInterval = 1000L // 1 second
+    private var activityManager: ActivityManager? = null
+
+    private val updateRunnable =
+        object : Runnable {
+            override fun run() {
+                logCpuUsage()
+                handler.postDelayed(this, updateInterval)
+            }
+        }
+
+    fun startMonitoring() {
+        handler.post(updateRunnable)
+    }
+
+    fun stopMonitoring() {
+        handler.removeCallbacks(updateRunnable)
+    }
+
+    private fun logCpuUsage() {
+        val pid = android.os.Process.myPid()
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager?.getMemoryInfo(memoryInfo)
+        val cpuUsage = Debug.threadCpuTimeNanos() / 1000000 // Convert to milliseconds
     }
 }
