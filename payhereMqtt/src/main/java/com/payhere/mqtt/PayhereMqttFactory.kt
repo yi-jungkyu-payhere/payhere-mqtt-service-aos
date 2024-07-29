@@ -180,7 +180,7 @@ object PayhereMqttFactory {
                 val reqMqttStatusData = ReqMqttStatusData(
 //                    mqttAppStatus =
                     MqttAppStatus(
-                        isActive = CommonFunction.isAppRunning(context,""),
+                        isActive = CommonFunction.isAppRunning(context,"finalPakegeName"),
                     ),
                     mqttDeviceStatus =
                     MqttDeviceStatus(
@@ -235,6 +235,7 @@ object PayhereMqttFactory {
         sid: String,
         csn: String,
         model: String,
+        finalPakegeName: String,
         clientEndpoint: String = "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com",
         reqMqtt: ReqMqtt? = null,
     ): Boolean {

@@ -35,6 +35,7 @@ class PayHereMqttService : Service() {
         var sid: String = ""
         var modelName: String = ""
         var sn: String = ""
+        var pakegeName: String = ""
         private var gson = Gson()
         private val coroutineExceptionHandler =
             CoroutineExceptionHandler { _, exception ->
@@ -70,6 +71,7 @@ class PayHereMqttService : Service() {
             sid: String,
             modelName: String,
             sn: String,
+            pakegeName: String,
             isDebug: Boolean,
         ) {
 
@@ -80,6 +82,7 @@ class PayHereMqttService : Service() {
             editor.putString("sid", sid)
             editor.putString("modelName", modelName)
             editor.putString("sn", sn)
+            editor.putString("pakegeName", pakegeName)
             editor.putBoolean("isDebug", isDebug)
             editor.apply()
 
@@ -88,6 +91,7 @@ class PayHereMqttService : Service() {
             PayHereMqttService.sid = sid
             PayHereMqttService.modelName = modelName
             PayHereMqttService.sn = sn
+            PayHereMqttService.pakegeName = pakegeName
             PayHereMqttService.isDebug = isDebug
             if (!isServiceRunning(PayHereMqttService::class.java, ctx)) {
                 val service = Intent(ctx, PayHereMqttService::class.java)
@@ -128,6 +132,7 @@ class PayHereMqttService : Service() {
             sid = sid,
             modelName = modelName,
             sn = sn,
+            pakegeName = pakegeName,
             isDebug = isDebug,
         )
 //        return super.onStartCommand(intent, flags, startId)
@@ -173,6 +178,7 @@ class PayHereMqttService : Service() {
         sid: String,
         modelName: String,
         sn: String,
+        pakegeName: String,
         isDebug: Boolean,
     ) {
         val deviceIdLong = getDeviceId(this).hashCode()
@@ -182,6 +188,7 @@ class PayHereMqttService : Service() {
             sid = sid,
             modelName = modelName,
             sn = sn,
+            pakegeName = pakegeName,
             isDebug = isDebug,
         )
     }
@@ -191,6 +198,7 @@ class PayHereMqttService : Service() {
         sid: String,
         modelName: String,
         sn: String,
+        pakegeName: String,
         isDebug: Boolean,
     ) {
         log.e("sid: $sid")
@@ -198,6 +206,7 @@ class PayHereMqttService : Service() {
         var finalSid = sid
         var finalModelName = modelName
         var finalSn = sn
+        var finalPakegeName = pakegeName
         var finalIsDebug = isDebug
         if (finalSid.isEmpty()){
 //            stopMqttService()
@@ -236,6 +245,7 @@ class PayHereMqttService : Service() {
 //                reqMqtt = mqttMessage,
                 csn = finalSn,
                 model = finalModelName ?: "",
+                finalPakegeName = finalPakegeName ?: "",
                 clientEndpoint = if (finalIsDebug) "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
             )
         ) {
