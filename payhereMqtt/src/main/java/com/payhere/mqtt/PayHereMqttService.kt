@@ -112,6 +112,10 @@ class PayHereMqttService : Service() {
         fun stopService(ctx: Context) {
             //        scope.cancel()
 //        PayhereMqttFactory.clearMqtt()
+            val sharedPreferences: SharedPreferences = ctx.getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
+            val editor = sharedPreferences.edit()
+            editor.clear()
+            editor.apply()
             val service = Intent(ctx, PayHereMqttService::class.java)
             ctx.stopService(service)
         }
