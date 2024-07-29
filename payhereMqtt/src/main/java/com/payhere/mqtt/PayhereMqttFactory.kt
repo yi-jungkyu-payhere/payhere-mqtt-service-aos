@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import software.amazon.awssdk.crt.mqtt5.Mqtt5Client
 import software.amazon.awssdk.crt.mqtt5.Mqtt5ClientOptions
 import software.amazon.awssdk.crt.mqtt5.OnAttemptingConnectReturn
@@ -172,6 +173,10 @@ object PayhereMqttFactory {
             while (true) { // 현재 코루틴이 활성 상태인지 확인
                 // 여기에 반복할 작업을 넣습니다.
                 delay(delay * 1000)
+                val cpu = runBlocking {
+                    CommonFunction.getCpuUsage(context)
+                }
+                log.e("cpu: $cpu")
                 val reqMqttStatusData = ReqMqttStatusData(
                     mqttAppStatus =
                     MqttAppStatus(
@@ -183,7 +188,7 @@ object PayhereMqttFactory {
                         storageAvailable = CommonFunction.getStorageUse(),
                         batteryLevel = CommonFunction.getBatteryPercentage(context),
                         wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
-                        cpuStatus = CommonFunction.logCpuUsage(),
+                        cpuStatus = "${cpu}",
                     ),
                     mqttVersionInfo =
                     MqttVersionInfo(
