@@ -179,9 +179,9 @@ object PayhereMqttFactory {
                 log.e("cpu: $cpu")
                 val reqMqttStatusData = ReqMqttStatusData(
 //                    mqttAppStatus =
-//                    MqttAppStatus(
-//                        isActive = true, // 여기는 무슨값
-//                    ),
+                    MqttAppStatus(
+                        isActive = CommonFunction.isAppRunning(context,""),
+                    ),
                     mqttDeviceStatus =
                     MqttDeviceStatus(
                         memoryUsage = CommonFunction.getBatteryPercentage(context),
@@ -189,7 +189,6 @@ object PayhereMqttFactory {
                         batteryLevel = CommonFunction.getBatteryPercentage(context),
                         wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
                         cpuStatus = "${cpu}",
-                        isAppRunning = "${CommonFunction.isAppRunning(context,"in.payhre.dev")}",
                     ),
                     mqttVersionInfo =
                     MqttVersionInfo(
