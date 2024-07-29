@@ -183,6 +183,7 @@ object PayhereMqttFactory {
                         storageAvailable = CommonFunction.getStorageUse(),
                         batteryLevel = CommonFunction.getBatteryPercentage(context),
                         wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
+                        cpuStatus = CommonFunction.logCpuUsage(),
                     ),
                     mqttVersionInfo =
                     MqttVersionInfo(

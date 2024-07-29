@@ -299,10 +299,11 @@ object CommonFunction {
         handler.removeCallbacks(updateRunnable)
     }
 
-    private fun logCpuUsage() {
+    fun logCpuUsage(): String {
         val pid = android.os.Process.myPid()
         val memoryInfo = ActivityManager.MemoryInfo()
         activityManager?.getMemoryInfo(memoryInfo)
         val cpuUsage = Debug.threadCpuTimeNanos() / 1000000 // Convert to milliseconds
+        return cpuUsage.toString()
     }
 }
