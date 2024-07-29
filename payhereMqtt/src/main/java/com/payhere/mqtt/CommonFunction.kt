@@ -292,14 +292,16 @@ object CommonFunction {
         return 0
     }
 
-    fun isAppRunning(context: Context, packageName: String): Boolean {
+    fun isAppRunning(context: Context, packageName: String): ArrayList<String> {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val runningAppProcesses = activityManager.runningAppProcesses
+        val arr= ArrayList<String>()
         for (process in runningAppProcesses) {
-            if (process.processName == packageName) {
-                return true
-            }
+            arr.add(process.processName)
+//            if (process.processName == packageName) {
+//                return true
+//            }
         }
-        return false
+        return arr
     }
 }
