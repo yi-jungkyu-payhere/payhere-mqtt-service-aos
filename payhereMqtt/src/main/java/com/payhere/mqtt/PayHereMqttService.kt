@@ -140,6 +140,15 @@ class PayHereMqttService : Service() {
         super.onDestroy()
     }
 
+    //앱 종료시 같이 종료
+//    override fun onTaskRemoved(rootIntent: Intent?) {
+//        super.onTaskRemoved(rootIntent)
+//        // Stop the service and clear resources
+//        scope.cancel()
+//        PayhereMqttFactory.clearMqtt()
+//        stopSelf()
+//    }
+
     override fun onBind(intent: Intent?): IBinder? {
         log.e("bind service")
         TODO("Not yet implemented")
@@ -187,6 +196,9 @@ class PayHereMqttService : Service() {
         var finalSn = sn
         var finalIsDebug = isDebug
         if (finalSid.isEmpty()){
+             stopForeground(true) // 포그라운드 서비스 중지
+             stopSelf() // 서비스 중지 코드
+            return
             val sharedPreferences: SharedPreferences = getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
             finalSid = sharedPreferences.getString("sid", "")?:""
             finalAccess = sharedPreferences.getString("access", "")?:""
