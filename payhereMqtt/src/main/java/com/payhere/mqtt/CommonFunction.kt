@@ -300,10 +300,10 @@ object CommonFunction {
         for (process in runningAppProcesses) {
             log.e("process: ${process.processName}")
             log.e("importance: ${process.importance}")
-            arr.add(process.processName)
+            arr.add(process.importance.toString())
 //            if (process.processName == packageName) {
 //                val importance = process.importance
-                if (importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+//                if (importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
 //                    val processName = process.processName
 //                    if (processName == "$packageName.$mainActivityName") {
 //                        return true
