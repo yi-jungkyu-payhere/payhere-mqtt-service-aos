@@ -2,7 +2,6 @@ package com.payhere.mqtt
 
 import android.content.Context
 import android.os.Build
-import android.os.CountDownTimer
 import androidx.annotation.RequiresApi
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -30,25 +29,17 @@ import software.amazon.awssdk.iot.AwsIotMqtt5ClientBuilder
 
 @RequiresApi(Build.VERSION_CODES.N)
 object PayhereMqttFactory {
-
     private const val AUTHORIZER = "iot-authorizer"
 
-    private var sid = ""
-    private var csn = ""
-    private var deviceModel = ""
+    private var sid: String? = ""
+    private var csn: String? = ""
+    private var deviceModel: String? = ""
+    private var platform: String? = ""
     var access: String? = null
     private var clientEndpoint: String? = null
 
-    var topicConnectionStatus = ""
-    var topicConnectionStatusCsn = ""
-
-//    var topicCancel = ""
-
-    var baseTopicCommon = ""
-    var baseTopicPayment = ""
     var baseTopicSeller = ""
 
-    //    private var topicCycle = ""
     private var topicStatus = ""
 
     private var topicShutDown = ""
@@ -59,17 +50,9 @@ object PayhereMqttFactory {
     private var topicReInstall = ""
 
     private var topicCommonTerminalAlive = ""
-    private var topicCommonConnectionCheck = ""
-
-    private var topicPaymentRequestConnect = ""
-    private var topicPaymentResultConnect = ""
-
-    private var topicSellerRequestConnect = ""
-    private var topicSellerResultConnect = ""
 
     private var basicTopics = mutableSetOf<String>()
     private var topics = mutableSetOf<String>()
-    private var isLogoutAction = false
 
     private val _messageArrived = MutableSharedFlow<Pair<String, String>>()
     val messageArrived: SharedFlow<Pair<String, String>> = _messageArrived
@@ -91,51 +74,13 @@ object PayhereMqttFactory {
         }
 
     fun initTopic() {
-//        connectionJob =
-//            CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
-//                delay(1000 * 10) // 10초 대기
-//                val myData =
-//                    Gson().fromJson(
-//                        Gson().toJson(
-//                            ReqMqtt(deviceModel = deviceModel, deviceSerialnumber = csn),
-//                        ),
-//                        JsonObject::class.java,
-//                    )
-//                val jsonArray = JsonArray()
-//                jsonArray.add(myData)
-//                if (mqtt5Client?.isConnected == false) return@launch
-//                val message =
-//                    PublishPacket.PublishPacketBuilder()
-//                        .withTopic(topicCommonConnectionCheck)
-//                        .withQOS(QOS.AT_LEAST_ONCE)
-//                        .withPayload(Gson().toJson(jsonArray).toByteArray())
-//                        .withRetain(true)
-//                        .build()
-//                mqtt5Client?.publish(message)
-//            }
-
-        // 기존 사용
-        topicConnectionStatus = "sellers/$sid/terminal_client/connection-status"
-        topicConnectionStatusCsn = "sellers/$sid/terminal_client/connection-status/$csn"
-
-        baseTopicCommon = "${MqttEvent.BASE_TOPIC_COMMON}/$sid/"
-        baseTopicPayment = "${MqttEvent.BASE_TOPIC_PAYMENT}/$sid/$csn/"
         baseTopicSeller = "${MqttEvent.BASE_TOPIC_SELLERS}/$sid/terminal/$csn/"
 
-        // 공통
-        topicCommonConnectionCheck = "${baseTopicCommon}${MqttEvent.CONNECTION_CHECK}"
-        topicCommonTerminalAlive = "${baseTopicCommon}${MqttEvent.ALIVE}"
-
-        // 외부연동
-        topicPaymentRequestConnect = "${baseTopicPayment}${MqttEvent.Request.CONNECT}"
-        topicPaymentResultConnect = "${baseTopicPayment}${MqttEvent.Result.CONNECT}"
-        // 셀러연동
-        topicSellerRequestConnect = "${baseTopicSeller}${MqttEvent.Request.CONNECT}"
-        topicSellerResultConnect = "${baseTopicSeller}${MqttEvent.Result.CONNECT}"
+        topicCommonTerminalAlive = "${MqttEvent.BASE_TOPIC_PLATFORMS}/$platform/$csn/${MqttEvent.ALIVE}"
 
         // 관제 토픽
 //        topicCycle = "${baseTopicSeller}${MqttEvent.CYCLE}"
-        topicStatus = "${baseTopicSeller}${MqttEvent.STATUS}"
+//        topicStatus = "${baseTopicSeller}${MqttEvent.STATUS}"
 
         // 제어 토픽
         topicShutDown = "${baseTopicSeller}${MqttEvent.Request.SHUTDOWN}"
@@ -146,11 +91,10 @@ object PayhereMqttFactory {
         topicReInstall = "${baseTopicSeller}${MqttEvent.Request.REINSTALL}"
 
         basicTopics.run {
-            add(topicCommonConnectionCheck)
-            add(topicPaymentRequestConnect)
+//            add(topicCommonConnectionCheck)
+//            add(topicPaymentRequestConnect)
             // 관제
-//            add(topicCycle)
-//            add(topicStatus)
+            add(topicStatus)
             // 제어
             add(topicShutDown)
             add(topicReboot)
@@ -166,62 +110,70 @@ object PayhereMqttFactory {
         context: Context,
         pakegeName: String,
     ) {
-        log.e("delay: $delay")
-        log.e("topicStatus: ${topicStatus}")
         if (delay == 0L) return
-
-        cycleStatus = CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
-            while (true) { // 현재 코루틴이 활성 상태인지 확인
-                // 여기에 반복할 작업을 넣습니다.
-                delay(delay * 1000)
-                val cpu = runBlocking {
-                    CommonFunction.getCpuUsage(context)
-                }
-                log.e("cpu: $cpu")
-                val reqMqttStatusData = ReqMqttStatusData(
+        cycleStatus =
+            CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
+                while (true) { // 현재 코루틴이 활성 상태인지 확인
+                    // 여기에 반복할 작업을 넣습니다.
+                    delay(delay * 1000)
+                    val cpu =
+                        runBlocking {
+                            CommonFunction.getCpuUsage(context)
+                        }
+                    log.e("cpu: $cpu")
+                    val reqMqttStatusData =
+                        ReqMqttStatusData(
 //                    mqttAppStatus =
-                    MqttAppStatus(
-                        isActive = CommonFunction.isAppRunning(context,pakegeName),
-                    ),
-                    mqttDeviceStatus =
-                    MqttDeviceStatus(
-                        memoryUsage = CommonFunction.getBatteryPercentage(context),
-                        storageAvailable = CommonFunction.getStorageUse(),
-                        batteryLevel = CommonFunction.getBatteryPercentage(context),
-                        wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
-                        cpuStatus = "${cpu}",
-                    ),
-                    mqttVersionInfo =
-                    MqttVersionInfo(
-                        appVersion = "test",
-                        firmwareVersion = "testtest",
-                    ),
-                    mqttSellerIntegrationStatus =
-                    MqttSellerIntegrationStatus(
-                        isIntegratedWebsoket = null, // TODO : 웹소켓 연동 여부
-                        isIntegratedMqtt = null, // TODO : mqtt 연동 여부
-                    ),
-                    mqttEventAt = System.currentTimeMillis().toString(),
-                )
-                val message =
-                    PublishPacket.PublishPacketBuilder()
-                        .withTopic(topicStatus)
-                        .withQOS(QOS.AT_LEAST_ONCE)
-                        .withPayload(Gson().toJson(
-                            reqMqttStatusData
-                        ).toByteArray())
-                        .withRetain(false)
-                        .build()
-                mqtt5Client?.publish(message)?.whenComplete { publishComplete, throwable ->
-                    if (throwable != null) {
-                        log.e("Publish failed: ${throwable.message}")
-                    } else {
-                        log.e("MQTT-Publish: $topicStatus")
-                        log.dMqtt("MQTT-Publish", "--> Publish: $topicStatus", String(Gson().toJson(reqMqttStatusData).toByteArray()), false)
+                            MqttAppStatus(
+                                isActive = CommonFunction.isAppRunning(context, pakegeName),
+                            ),
+                            mqttDeviceStatus =
+                                MqttDeviceStatus(
+                                    memoryUsage = CommonFunction.getBatteryPercentage(context),
+                                    storageAvailable = CommonFunction.getStorageUse(),
+                                    batteryLevel = CommonFunction.getBatteryPercentage(context),
+                                    wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
+                                    cpuStatus = "$cpu",
+                                ),
+                            mqttVersionInfo =
+                                MqttVersionInfo(
+                                    appVersion = "test",
+                                    firmwareVersion = "testtest",
+                                ),
+                            mqttSellerIntegrationStatus =
+                                MqttSellerIntegrationStatus(
+                                    isIntegratedWebsoket = null, // TODO : 웹소켓 연동 여부
+                                    isIntegratedMqtt = null, // TODO : mqtt 연동 여부
+                                ),
+                            mqttEventAt = System.currentTimeMillis().toString(),
+                        )
+                    val message =
+                        PublishPacket
+                            .PublishPacketBuilder()
+                            .withTopic(topicStatus)
+                            .withQOS(QOS.AT_LEAST_ONCE)
+                            .withPayload(
+                                Gson()
+                                    .toJson(
+                                        reqMqttStatusData,
+                                    ).toByteArray(),
+                            ).withRetain(false)
+                            .build()
+                    mqtt5Client?.publish(message)?.whenComplete { publishComplete, throwable ->
+                        if (throwable != null) {
+                            log.e("Publish failed: ${throwable.message}")
+                        } else {
+                            log.e("MQTT-Publish: $topicStatus")
+                            log.dMqtt(
+                                "MQTT-Publish",
+                                "--> Publish: $topicStatus",
+                                String(Gson().toJson(reqMqttStatusData).toByteArray()),
+                                false,
+                            )
+                        }
                     }
                 }
             }
-        }
     }
 
     fun stopCycleStatus() {
@@ -232,11 +184,12 @@ object PayhereMqttFactory {
 
     fun setMqttCallBackConnect(
         context: Context,
-        access: String,
-        sid: String,
-        csn: String,
-        model: String,
-        pakegeName: String,
+        access: String? = null,
+        sid: String? = null,
+        csn: String? = null,
+        model: String? = null,
+        platform: String? = null,
+        pakegeName: String?,
         clientEndpoint: String = "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com",
         reqMqtt: ReqMqtt? = null,
     ): Boolean {
@@ -248,36 +201,39 @@ object PayhereMqttFactory {
         this.sid = sid
         this.csn = csn
         this.deviceModel = model
+        this.platform = platform
         try {
             initTopic()
             val customAuthConfig =
                 AwsIotMqtt5ClientBuilder.MqttConnectCustomAuthConfig().apply {
                     authorizerName = AUTHORIZER
                     username = "${csn}_payherService"
-                    password = access.toByteArray()
+                    password = access?.toByteArray()
                 }
 
             val builder =
                 AwsIotMqtt5ClientBuilder.newDirectMqttBuilderWithCustomAuth(clientEndpoint, customAuthConfig).apply {
                     withConnectProperties(
-                        ConnectPacket.ConnectPacketBuilder()
+                        ConnectPacket
+                            .ConnectPacketBuilder()
                             .withClientId("${csn}_payherService")
                             .withKeepAliveIntervalSeconds(60L)
                             .withWillDelayIntervalSeconds(0)
                             .withSessionExpiryIntervalSeconds(60L * 60 * 12)
                             .withWill(
-                                PublishPacket.PublishPacketBuilder()
+                                PublishPacket
+                                    .PublishPacketBuilder()
                                     .withTopic(topicCommonTerminalAlive)
                                     .withQOS(QOS.AT_LEAST_ONCE)
                                     .withPayload(
-                                        Gson().toJson(
-                                            ReqMqtt(
-                                                deviceSerialnumber = csn,
-                                                alive = false,
-                                            ),
-                                        ).toByteArray(),
-                                    )
-                                    .withRetain(true)
+                                        Gson()
+                                            .toJson(
+                                                ReqMqtt(
+                                                    deviceSerialnumber = csn,
+                                                    alive = false,
+                                                ),
+                                            ).toByteArray(),
+                                    ).withRetain(true)
                                     .build(),
                             ),
                     )
@@ -463,7 +419,7 @@ object PayhereMqttFactory {
                         startCycleStatus(
                             delay = 10,
                             context = context,
-                            pakegeName = pakegeName
+                            pakegeName = pakegeName ?: "",
                         )
 
 //                        subscribeTopics(basicTopics)
@@ -520,7 +476,8 @@ object PayhereMqttFactory {
             copyOfTopics.forEach {
                 val mqtt5qos = QOS.AT_LEAST_ONCE
                 val subscribePacket =
-                    SubscribePacket.SubscribePacketBuilder()
+                    SubscribePacket
+                        .SubscribePacketBuilder()
                         .withSubscription(it, mqtt5qos)
                         .build()
                 mqtt5Client?.subscribe(subscribePacket)?.whenComplete { subAckPacket, throwable ->
@@ -548,7 +505,8 @@ object PayhereMqttFactory {
             if (mqtt5Client?.isConnected == false) return
             if (reqMqtt?.sid?.isEmpty() == true) return
             val message =
-                PublishPacket.PublishPacketBuilder()
+                PublishPacket
+                    .PublishPacketBuilder()
                     .withTopic(topic)
                     .withQOS(QOS.AT_LEAST_ONCE)
                     .withPayload(if (init == true) ByteArray(0) else Gson().toJson(reqMqtt).toByteArray())
@@ -573,12 +531,14 @@ object PayhereMqttFactory {
             copyOfTopics.forEach {
                 log.d("MQTT-Unsubscribe: $it")
                 val unsubAckPacket =
-                    UnsubscribePacket.UnsubscribePacketBuilder()
+                    UnsubscribePacket
+                        .UnsubscribePacketBuilder()
                         .withSubscription(it)
                         .build()
                 mqtt5Client?.unsubscribe(unsubAckPacket)
             }
             topics.clear()
+            basicTopics.clear()
             if (mqtt5Client?.isConnected == true) {
                 sendMqttMessage(
                     topic = topicCommonTerminalAlive,
@@ -594,18 +554,6 @@ object PayhereMqttFactory {
             mqtt5Client = null
         } catch (e: Exception) {
             log.e("exception: ${e.message}")
-        }
-    }
-
-    fun logOutMqtt() {
-        if (mqtt5Client?.isConnected == true) {
-            isLogoutAction = true
-            val mqtt5qos = QOS.AT_LEAST_ONCE
-            val subscribePacket =
-                SubscribePacket.SubscribePacketBuilder()
-                    .withSubscription(topicCommonConnectionCheck, mqtt5qos)
-                    .build()
-            mqtt5Client?.subscribe(subscribePacket)
         }
     }
 

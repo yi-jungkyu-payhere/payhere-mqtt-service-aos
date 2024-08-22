@@ -195,11 +195,12 @@ class PayHereMqttService : Service() {
     }
 
     private fun initRxMqtt(
-        access: String?,
-        sid: String,
-        modelName: String,
-        sn: String,
-        pakegeName: String,
+        access: String? = null,
+        sid: String? = null,
+        modelName: String? = null,
+        sn: String? = null,
+        pakegeName: String? = null,
+        platform: String? = null,
         isDebug: Boolean,
     ) {
         log.e("sid: $sid")
@@ -209,7 +210,7 @@ class PayHereMqttService : Service() {
         var finalSn = sn
         var finalPakegeName = pakegeName
         var finalIsDebug = isDebug
-        if (finalSid.isEmpty()){
+        if (finalSid?.isEmpty() == true){
 //            stopMqttService()
 //            return
             val sharedPreferences: SharedPreferences = getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
@@ -221,9 +222,9 @@ class PayHereMqttService : Service() {
             if (finalAccess.isEmpty()) {
                 return
             }
-            if (finalSid.isEmpty()) {
-                return
-            }
+//            if (finalSid.isEmpty()) {
+//                return
+//            }
         }
 //        val mqttMessage =
 //            ReqMqtt(
@@ -248,6 +249,7 @@ class PayHereMqttService : Service() {
                 model = finalModelName ?: "",
                 pakegeName = finalPakegeName ?: "",
                 clientEndpoint = if (finalIsDebug) "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
+                platform = platform
             )
         ) {
             scope.launch {

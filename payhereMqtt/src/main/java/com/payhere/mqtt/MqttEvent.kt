@@ -4,6 +4,7 @@ object MqttEvent {
     const val BASE_TOPIC_COMMON = "common" //외부연동결제
     const val BASE_TOPIC_PAYMENT = "payments" //외부연동결제
     const val BASE_TOPIC_SELLERS = "sellers" //관제, 제어
+    const val BASE_TOPIC_PLATFORMS = "platforms" //관제, 제어
 
     const val CYCLE = "cycle"
     const val STATUS = "status"
