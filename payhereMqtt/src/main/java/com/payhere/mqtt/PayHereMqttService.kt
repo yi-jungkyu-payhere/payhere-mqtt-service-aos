@@ -29,6 +29,7 @@ class PayHereMqttService : Service() {
         const val NOTICHANNEL_SERVICE_ID = "payhere_mqtt_service"
         const val NOTICHANNEL_SERVICE_NAME = "payhere_mqtt"
         const val PAYHEREMQTTSERVICEPREFS = "PayHereMqttServicePrefs"
+        const val MQTT_PERM_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0MjI0MDc1LCJleHAiOjMzMjgxMTY1Mjc1fQ.MmtdeXTBZaS825GYYwyz4ZfhSizwHVuFYHkRESKPCTQ"
         var appIdentifier: String = ""
         var isDebug: Boolean = false
         var access: String = ""
@@ -202,7 +203,7 @@ class PayHereMqttService : Service() {
         isDebug: Boolean,
     ) {
         log.e("sid: $sid")
-        var finalAccess = if (access?.isEmpty() == true) "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0MjI0MDc1LCJleHAiOjMzMjgxMTY1Mjc1fQ.MmtdeXTBZaS825GYYwyz4ZfhSizwHVuFYHkRESKPCTQ" else access
+        var finalAccess = if (access?.isEmpty() == true) MQTT_PERM_TOKEN else access
         var finalSid = sid
         var finalModelName = modelName
         var finalSn = sn
