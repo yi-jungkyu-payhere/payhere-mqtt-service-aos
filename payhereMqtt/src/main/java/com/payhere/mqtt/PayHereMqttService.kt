@@ -174,7 +174,7 @@ class PayHereMqttService : Service() {
         }
 
     private fun initService(
-        access: String,
+        access: String?,
         sid: String,
         modelName: String,
         sn: String,
@@ -194,7 +194,7 @@ class PayHereMqttService : Service() {
     }
 
     private fun initRxMqtt(
-        access: String,
+        access: String?,
         sid: String,
         modelName: String,
         sn: String,
@@ -202,7 +202,7 @@ class PayHereMqttService : Service() {
         isDebug: Boolean,
     ) {
         log.e("sid: $sid")
-        var finalAccess = access
+        var finalAccess = if (access?.isEmpty() == true) "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0MjI0MDc1LCJleHAiOjMzMjgxMTY1Mjc1fQ.MmtdeXTBZaS825GYYwyz4ZfhSizwHVuFYHkRESKPCTQ" else access
         var finalSid = sid
         var finalModelName = modelName
         var finalSn = sn
