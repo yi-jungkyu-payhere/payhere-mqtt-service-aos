@@ -13,7 +13,6 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
-import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
@@ -25,7 +24,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -37,7 +35,7 @@ class PayHereMqttService : Service() {
         const val NOTICHANNEL_SERVICE_ID = "payhere_mqtt_service"
         const val NOTICHANNEL_SERVICE_NAME = "payhere_mqtt"
         const val PAYHEREMQTTSERVICEPREFS = "PayHereMqttServicePrefs"
-        const val MQTT_PERM_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0MjI0MDc1LCJleHAiOjMzMjgxMTY1Mjc1fQ.MmtdeXTBZaS825GYYwyz4ZfhSizwHVuFYHkRESKPCTQ"
+        const val MQTT_PERM_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0OTEyMTA4LCJleHAiOjMzMjgxODUzMzA4fQ.cLx0LSfE4ZAhqyAaX_a9xobmk75jyLaAiJHrsvA-Zm4"
         var appIdentifier: String = ""
         var access: String = ""
         var sid: String = ""
@@ -230,39 +228,41 @@ class PayHereMqttService : Service() {
             CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
                 while (true) {
                     val callResponse: Call<Response<String>> =
-                        NetRetrofit().getNetRetrofit().patchMonitoring(
-                            accessToken = access?:"",
-                            sid = sid?:"",
-                            appIdentifier = sn ?: "",
-                            data =
-                            ReqMonitorStatus(
-                                status =
-                                ReqStatusData(
-                                    appInfo =
-                                    AppInfo(
-                                        isActive = CommonFunction.isAppInForeground(this@PayHereMqttService),
-                                        isFrozen = CommonFunction.isAppRunning(this@PayHereMqttService),
-                                        appIdentifier = sn ?: "",
+                        NetRetrofit()
+                            .getNetRetrofit()
+                            .patchMonitoring(
+                                accessToken = access ?: "",
+                                sid = sid ?: "",
+                                appIdentifier = sn ?: "",
+                                data =
+                                    ReqMonitorStatus(
+                                        status =
+                                            ReqStatusData(
+                                                appInfo =
+                                                    AppInfo(
+                                                        isActive = CommonFunction.isAppInForeground(this@PayHereMqttService),
+                                                        isFrozen = CommonFunction.isAppRunning(this@PayHereMqttService),
+                                                        appIdentifier = sn ?: "",
+                                                    ),
+                                                deviceInfo =
+                                                    DeviceInfo(
+                                                        memoryUsage = CommonFunction.getMemoryUse(),
+                                                        storageAvailable = CommonFunction.getStorageUse(),
+                                                        wifiName = CommonFunction.getCurrentWifiName(this@PayHereMqttService),
+                                                        ipAddress = CommonFunction.getLocalIPAddress(),
+                                                        wifiSignalStrength = CommonFunction.getWifiSignalStrength(this@PayHereMqttService),
+                                                        batteryLevel = CommonFunction.getBatteryPercentage(this@PayHereMqttService),
+                                                        batteryStatus = CommonFunction.getBatteryChargingStatus(this@PayHereMqttService),
+                                                    ),
+                                                versionInfo =
+                                                    VersionInfo(
+                                                        appVersion = appVersion,
+                                                        osVersion = osVersion,
+                                                        firmwareVersion = firmwareVersion,
+                                                    ),
+                                            ),
                                     ),
-                                    deviceInfo =
-                                    DeviceInfo(
-                                        memoryUsage = CommonFunction.getMemoryUse(),
-                                        storageAvailable = CommonFunction.getStorageUse(),
-                                        wifiName = CommonFunction.getCurrentWifiName(this@PayHereMqttService),
-                                        ipAddress = CommonFunction.getLocalIPAddress(),
-                                        wifiSignalStrength = CommonFunction.getWifiSignalStrength(this@PayHereMqttService),
-                                        batteryLevel = CommonFunction.getBatteryPercentage(this@PayHereMqttService),
-                                        batteryStatus = CommonFunction.getBatteryChargingStatus(this@PayHereMqttService),
-                                    ),
-                                    versionInfo =
-                                    VersionInfo(
-                                        appVersion = appVersion,
-                                        osVersion = osVersion,
-                                        firmwareVersion = firmwareVersion,
-                                    ),
-                                ),
-                            ),
-                        )
+                            )
 
                     callResponse.enqueue(
                         object : Callback<Response<String>> {
@@ -273,7 +273,10 @@ class PayHereMqttService : Service() {
                                 log.d("response: ${response.body()}")
                             }
 
-                            override fun onFailure(call: Call<Response<String>>, t: Throwable) {
+                            override fun onFailure(
+                                call: Call<Response<String>>,
+                                t: Throwable,
+                            ) {
                                 log.e("error: ${t.message}")
                             }
                         },
