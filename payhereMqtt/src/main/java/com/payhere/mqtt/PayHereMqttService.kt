@@ -13,14 +13,22 @@ import android.content.SharedPreferences
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
+import com.payhere.retrofit.NetRetrofit
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import okhttp3.ResponseBody
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.util.Timer
 
 @RequiresApi(Build.VERSION_CODES.N)
@@ -50,6 +58,7 @@ class PayHereMqttService : Service() {
 //            )
             }
         val scope = CoroutineScope(Dispatchers.IO + coroutineExceptionHandler)
+        private var statusJob: Job? = null
 
         fun isServiceRunning(
             serviceClass: Class<*>,
@@ -75,7 +84,6 @@ class PayHereMqttService : Service() {
             pakegeName: String,
             isDebug: Boolean,
         ) {
-
             val sharedPreferences: SharedPreferences = ctx.getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
             val editor = sharedPreferences.edit()
             editor.putString("access", access)
@@ -126,7 +134,11 @@ class PayHereMqttService : Service() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         log.e("onStartCommand")
         initService(
             access = access,
@@ -145,7 +157,7 @@ class PayHereMqttService : Service() {
         super.onDestroy()
     }
 
-    private fun stopMqttService(){
+    private fun stopMqttService() {
         scope.cancel()
         PayhereMqttFactory.clearMqtt()
         stopForeground(true) // 포그라운드 서비스 중지
@@ -180,18 +192,101 @@ class PayHereMqttService : Service() {
         modelName: String,
         sn: String,
         pakegeName: String,
-        isDebug: Boolean,
+        appVersion: String? = null,
+        osVersion: String? = null,
+        firmwareVersion: String? = null,
     ) {
         val deviceIdLong = getDeviceId(this).hashCode()
         startForeground(deviceIdLong, createNotification(this))
-        initRxMqtt(
+//        initRxMqtt(
+//            access = access,
+//            sid = sid,
+//            modelName = modelName,
+//            sn = sn,
+//            pakegeName = pakegeName,
+//            isDebug = isDebug,
+//        )
+        initStaus(
             access = access,
             sid = sid,
             modelName = modelName,
             sn = sn,
             pakegeName = pakegeName,
-            isDebug = isDebug,
+            platform = "android",
+            appVersion = appVersion,
+            osVersion = osVersion,
+            firmwareVersion = firmwareVersion,
         )
+    }
+
+    private fun initStaus(
+        access: String? = null,
+        sid: String? = null,
+        modelName: String? = null,
+        sn: String? = null,
+        pakegeName: String? = null,
+        platform: String? = null,
+        appVersion: String? = null,
+        osVersion: String? = null,
+        firmwareVersion: String? = null,
+    ) {
+        if (statusJob?.isActive == true) return
+        statusJob =
+            CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
+                while (true) {
+                    val callResponse: Call<Response<String>> =
+                        NetRetrofit().getNetRetrofit().patchMonitoring(
+                            accessToken = access?:"",
+                            sid = sid?:"",
+                            appIdentifier = sn ?: "",
+                            data =
+                            ReqMonitorStatus(
+                                status =
+                                ReqStatusData(
+                                    appInfo =
+                                    AppInfo(
+                                        isActive = CommonFunction.isAppInForeground(this@PayHereMqttService),
+                                        isFrozen = CommonFunction.isAppRunning(this@PayHereMqttService),
+                                        appIdentifier = sn ?: "",
+                                    ),
+                                    deviceInfo =
+                                    DeviceInfo(
+                                        memoryUsage = CommonFunction.getMemoryUse(),
+                                        storageAvailable = CommonFunction.getStorageUse(),
+                                        wifiName = CommonFunction.getCurrentWifiName(this@PayHereMqttService),
+                                        ipAddress = CommonFunction.getLocalIPAddress(),
+                                        wifiSignalStrength = CommonFunction.getWifiSignalStrength(this@PayHereMqttService),
+                                        batteryLevel = CommonFunction.getBatteryPercentage(this@PayHereMqttService),
+                                        batteryStatus = CommonFunction.getBatteryChargingStatus(this@PayHereMqttService),
+                                    ),
+                                    versionInfo =
+                                    VersionInfo(
+                                        appVersion = appVersion,
+                                        osVersion = osVersion,
+                                        firmwareVersion = firmwareVersion,
+                                    ),
+                                ),
+                            ),
+                        )
+
+                    callResponse.enqueue(
+                        object : Callback<Response<String>> {
+                            override fun onResponse(
+                                call: Call<Response<String>>,
+                                response: Response<Response<String>>,
+                            ) {
+                                log.d("response: ${response.body()}")
+                            }
+
+                            override fun onFailure(call: Call<Response<String>>, t: Throwable) {
+                                log.e("error: ${t.message}")
+                            }
+                        },
+                    )
+                    delay(1000 * 60)
+                }
+            }
+        statusJob?.start()
     }
 
     private fun initRxMqtt(
@@ -210,14 +305,14 @@ class PayHereMqttService : Service() {
         var finalSn = sn
         var finalPakegeName = pakegeName
         var finalIsDebug = isDebug
-        if (finalSid?.isEmpty() == true){
+        if (finalSid?.isEmpty() == true) {
 //            stopMqttService()
 //            return
             val sharedPreferences: SharedPreferences = getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
-            finalSid = sharedPreferences.getString("sid", "")?:""
-            finalAccess = sharedPreferences.getString("access", "")?:""
-            finalModelName = sharedPreferences.getString("modelName", "")?:""
-            finalSn = sharedPreferences.getString("sn", "")?:""
+            finalSid = sharedPreferences.getString("sid", "") ?: ""
+            finalAccess = sharedPreferences.getString("access", "") ?: ""
+            finalModelName = sharedPreferences.getString("modelName", "") ?: ""
+            finalSn = sharedPreferences.getString("sn", "") ?: ""
             finalIsDebug = sharedPreferences.getBoolean("isDebug", false)
             if (finalAccess.isEmpty()) {
                 return
@@ -249,7 +344,7 @@ class PayHereMqttService : Service() {
                 model = finalModelName ?: "",
                 pakegeName = finalPakegeName ?: "",
                 clientEndpoint = if (finalIsDebug) "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
-                platform = platform
+                platform = platform,
             )
         ) {
             scope.launch {

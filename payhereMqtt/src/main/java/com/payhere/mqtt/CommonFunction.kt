@@ -26,6 +26,7 @@ import java.io.RandomAccessFile
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.SocketException
+import kotlin.math.abs
 import kotlin.system.exitProcess
 
 object CommonFunction {
@@ -292,23 +293,71 @@ object CommonFunction {
         return 0
     }
 
-    fun isAppRunning(context: Context, packageName: String): Boolean {
+    fun isAppRunning(context: Context): Boolean {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val runningAppProcesses = activityManager.runningAppProcesses
-        for (process in runningAppProcesses) {
-            log.e("process: ${process.processName}")
-            log.e("importance: ${process.importance}")
-            log.e("packageName: ${packageName}")
-            if (process.processName == packageName) {
-                val importance = process.importance
-                if (importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-//                    val processName = process.processName
-//                    if (processName == "$packageName.$mainActivityName") {
-                        return true
-//                    }
-                }
+        val runningAppProcesses = activityManager.runningAppProcesses ?: return false
+        val packageName = context.packageName
+        for (processInfo in runningAppProcesses) {
+            if (processInfo.processName == packageName) {
+                return true
             }
         }
         return false
     }
+    fun isAppInForeground(context: Context): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningAppProcesses = activityManager.runningAppProcesses ?: return false
+        val packageName = context.packageName
+        for (processInfo in runningAppProcesses) {
+            if (processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND && processInfo.processName == packageName) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun getMemoryUse(): String {
+        val runtime = Runtime.getRuntime()
+        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+        val freeMemory = runtime.freeMemory() / 1024 / 1024
+        val totalMemory = runtime.totalMemory() / 1024 / 1024
+        val maxMemory = runtime.maxMemory() / 1024 / 1024
+        return usedMemory.toString()
+    }
+
+    fun getCurrentWifiName(context: Context): String? {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiInfo = wifiManager.connectionInfo
+        return wifiInfo.ssid?.removePrefix("\"")?.removeSuffix("\"")
+    }
+
+    fun getWifiSignalStrength(context: Context): Int {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiInfo = wifiManager.connectionInfo
+
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val networkCapabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            var wifi = 0
+            if (networkCapabilities != null && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    wifi = networkCapabilities.signalStrength
+                }
+            }
+            abs(wifi)
+        } else {
+            WifiManager.calculateSignalLevel(wifiInfo.rssi, 100)
+        }
+    }
+
+    fun getBatteryChargingStatus(context: Context): String {
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val isCharging = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            batteryManager.isCharging
+        } else {
+            false
+        }
+        return if (isCharging) "Charging" else "Not Charging"
+    }
+
 }
