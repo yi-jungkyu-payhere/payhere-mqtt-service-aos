@@ -39,7 +39,6 @@ class PayHereMqttService : Service() {
         const val PAYHEREMQTTSERVICEPREFS = "PayHereMqttServicePrefs"
         const val MQTT_PERM_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0MjI0MDc1LCJleHAiOjMzMjgxMTY1Mjc1fQ.MmtdeXTBZaS825GYYwyz4ZfhSizwHVuFYHkRESKPCTQ"
         var appIdentifier: String = ""
-        var isDebug: Boolean = false
         var access: String = ""
         var sid: String = ""
         var modelName: String = ""
@@ -82,7 +81,6 @@ class PayHereMqttService : Service() {
             modelName: String,
             sn: String,
             pakegeName: String,
-            isDebug: Boolean,
         ) {
             val sharedPreferences: SharedPreferences = ctx.getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
             val editor = sharedPreferences.edit()
@@ -92,7 +90,6 @@ class PayHereMqttService : Service() {
             editor.putString("modelName", modelName)
             editor.putString("sn", sn)
             editor.putString("pakegeName", pakegeName)
-            editor.putBoolean("isDebug", isDebug)
             editor.apply()
 
             PayHereMqttService.access = access
@@ -101,7 +98,6 @@ class PayHereMqttService : Service() {
             PayHereMqttService.modelName = modelName
             PayHereMqttService.sn = sn
             PayHereMqttService.pakegeName = pakegeName
-            PayHereMqttService.isDebug = isDebug
             if (!isServiceRunning(PayHereMqttService::class.java, ctx)) {
                 val service = Intent(ctx, PayHereMqttService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
