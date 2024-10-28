@@ -146,7 +146,6 @@ class PayHereMqttService : Service() {
             modelName = modelName,
             sn = sn,
             pakegeName = pakegeName,
-            isDebug = isDebug,
         )
 //        return super.onStartCommand(intent, flags, startId)
         return START_STICKY

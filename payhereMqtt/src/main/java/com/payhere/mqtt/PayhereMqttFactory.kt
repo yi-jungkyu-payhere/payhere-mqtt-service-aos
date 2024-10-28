@@ -105,77 +105,6 @@ object PayhereMqttFactory {
         }
     }
 
-    fun startCycleStatus(
-        delay: Long,
-        context: Context,
-        pakegeName: String,
-    ) {
-        if (delay == 0L) return
-        cycleStatus =
-            CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
-                while (true) { // 현재 코루틴이 활성 상태인지 확인
-                    // 여기에 반복할 작업을 넣습니다.
-                    delay(delay * 1000)
-                    val cpu =
-                        runBlocking {
-                            CommonFunction.getCpuUsage(context)
-                        }
-                    log.e("cpu: $cpu")
-                    val reqMqttStatusData =
-                        ReqMqttStatusData(
-//                    mqttAppStatus =
-                            MqttAppStatus(
-                                isActive = CommonFunction.isAppRunning(context, pakegeName),
-                            ),
-                            mqttDeviceStatus =
-                                MqttDeviceStatus(
-                                    memoryUsage = CommonFunction.getBatteryPercentage(context),
-                                    storageAvailable = CommonFunction.getStorageUse(),
-                                    batteryLevel = CommonFunction.getBatteryPercentage(context),
-                                    wifiSignalStrength = CommonFunction.getWifiSignalStrengthInDbm(context),
-                                    cpuStatus = "$cpu",
-                                ),
-                            mqttVersionInfo =
-                                MqttVersionInfo(
-                                    appVersion = "test",
-                                    firmwareVersion = "testtest",
-                                ),
-                            mqttSellerIntegrationStatus =
-                                MqttSellerIntegrationStatus(
-                                    isIntegratedWebsoket = null, // TODO : 웹소켓 연동 여부
-                                    isIntegratedMqtt = null, // TODO : mqtt 연동 여부
-                                ),
-                            mqttEventAt = System.currentTimeMillis().toString(),
-                        )
-                    val message =
-                        PublishPacket
-                            .PublishPacketBuilder()
-                            .withTopic(topicStatus)
-                            .withQOS(QOS.AT_LEAST_ONCE)
-                            .withPayload(
-                                Gson()
-                                    .toJson(
-                                        reqMqttStatusData,
-                                    ).toByteArray(),
-                            ).withRetain(false)
-                            .build()
-                    mqtt5Client?.publish(message)?.whenComplete { publishComplete, throwable ->
-                        if (throwable != null) {
-                            log.e("Publish failed: ${throwable.message}")
-                        } else {
-                            log.e("MQTT-Publish: $topicStatus")
-                            log.dMqtt(
-                                "MQTT-Publish",
-                                "--> Publish: $topicStatus",
-                                String(Gson().toJson(reqMqttStatusData).toByteArray()),
-                                false,
-                            )
-                        }
-                    }
-                }
-            }
-    }
-
     fun stopCycleStatus() {
         if (this::cycleStatus.isInitialized) {
             cycleStatus.cancel()
@@ -415,11 +344,6 @@ object PayhereMqttFactory {
                                 "sessionExpiryIntervalSeconds : ${onConnectionSuccessReturn?.connAckPacket?.sessionExpiryIntervalSeconds}" +
                                 "\nserverKeepAliveSeconds : ${onConnectionSuccessReturn?.connAckPacket?.serverKeepAliveSeconds}" +
                                 "\n${onConnectionSuccessReturn?.connAckPacket}",
-                        )
-                        startCycleStatus(
-                            delay = 10,
-                            context = context,
-                            pakegeName = pakegeName ?: "",
                         )
 
 //                        subscribeTopics(basicTopics)
