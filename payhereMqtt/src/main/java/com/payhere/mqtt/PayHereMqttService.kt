@@ -9,17 +9,24 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.gson.Gson
+import com.payhere.retrofit.NetRetrofit
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
 import java.util.Timer
 
 @RequiresApi(Build.VERSION_CODES.N)
@@ -27,13 +34,28 @@ class PayHereMqttService : Service() {
     companion object {
         const val NOTICHANNEL_SERVICE_ID = "payhere_mqtt_service"
         const val NOTICHANNEL_SERVICE_NAME = "payhere_mqtt"
+        const val PAYHEREMQTTSERVICEPREFS = "PayHereMqttServicePrefs"
+        const val MQTT_PERM_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJzZXJ2aWNlX3R5cGUiOiJJT1QiLCJpc3MiOiJNUVRUIiwiaWF0IjoxNzI0OTEyMTA4LCJleHAiOjMzMjgxODUzMzA4fQ.cLx0LSfE4ZAhqyAaX_a9xobmk75jyLaAiJHrsvA-Zm4"
         var appIdentifier: String = ""
-        var isDebug: Boolean = false
         var access: String = ""
         var sid: String = ""
-        var customerSN: String = ""
-        var paxModel: String = ""
-        var paxCsn: String = ""
+        var modelName: String = ""
+        var sn: String = ""
+        var pakegeName: String = ""
+        private var gson = Gson()
+        private val coroutineExceptionHandler =
+            CoroutineExceptionHandler { _, exception ->
+//            eventLogUseCase.sendEventLog(
+//                eventCategory = EventCategory.ERROR,
+//                eventLog =
+//                    mutableMapOf(
+//                        "event" to "mqtt error",
+//                        "message" to "${exception.message}",
+//                    ),
+//            )
+            }
+        val scope = CoroutineScope(Dispatchers.IO + coroutineExceptionHandler)
+        private var statusJob: Job? = null
 
         fun isServiceRunning(
             serviceClass: Class<*>,
@@ -54,18 +76,26 @@ class PayHereMqttService : Service() {
             access: String,
             appIdentifier: String,
             sid: String,
-            customerSN: String,
-            paxModel: String,
-            paxCsn: String,
-            isDebug: Boolean,
+            modelName: String,
+            sn: String,
+            pakegeName: String,
         ) {
+            val sharedPreferences: SharedPreferences = ctx.getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
+            val editor = sharedPreferences.edit()
+            editor.putString("access", access)
+            editor.putString("appIdentifier", appIdentifier)
+            editor.putString("sid", sid)
+            editor.putString("modelName", modelName)
+            editor.putString("sn", sn)
+            editor.putString("pakegeName", pakegeName)
+            editor.apply()
+
             PayHereMqttService.access = access
             PayHereMqttService.appIdentifier = appIdentifier
             PayHereMqttService.sid = sid
-            PayHereMqttService.customerSN = customerSN
-            PayHereMqttService.paxModel = paxModel
-            PayHereMqttService.paxCsn = paxCsn
-            PayHereMqttService.isDebug = isDebug
+            PayHereMqttService.modelName = modelName
+            PayHereMqttService.sn = sn
+            PayHereMqttService.pakegeName = pakegeName
             if (!isServiceRunning(PayHereMqttService::class.java, ctx)) {
                 val service = Intent(ctx, PayHereMqttService::class.java)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -85,41 +115,57 @@ class PayHereMqttService : Service() {
                 ctx.startService(service)
             }
         }
+
+        fun stopService(ctx: Context) {
+            val sharedPreferences: SharedPreferences = ctx.getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
+            val editor = sharedPreferences.edit()
+            editor.clear()
+            editor.apply()
+            val service = Intent(ctx, PayHereMqttService::class.java)
+            scope.cancel()
+            PayhereMqttFactory.clearMqtt()
+            ctx.stopService(service)
+        }
     }
 
-    private var gson = Gson()
-    private val coroutineExceptionHandler =
-        CoroutineExceptionHandler { _, exception ->
-//            eventLogUseCase.sendEventLog(
-//                eventCategory = EventCategory.ERROR,
-//                eventLog =
-//                    mutableMapOf(
-//                        "event" to "mqtt error",
-//                        "message" to "${exception.message}",
-//                    ),
-//            )
-        }
-    val scope = CoroutineScope(Dispatchers.IO + coroutineExceptionHandler)
-
-    override fun onCreate() {
-        super.onCreate()
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
+        log.e("onStartCommand")
         initService(
             access = access,
             sid = sid,
-            customerSN = customerSN,
-            paxModel = paxModel,
-            paxCsn = paxCsn,
-            isDebug = isDebug,
+            modelName = modelName,
+            sn = sn,
+            pakegeName = pakegeName,
         )
+//        return super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
     override fun onDestroy() {
-        scope.cancel()
-        PayhereMqttFactory.clearMqtt()
+        stopMqttService()
         super.onDestroy()
     }
 
+    private fun stopMqttService() {
+        scope.cancel()
+        PayhereMqttFactory.clearMqtt()
+        stopForeground(true) // 포그라운드 서비스 중지
+        stopSelf() // 서비스 중지 코드
+    }
+
+//    //앱 종료시 같이 종료
+//    override fun onTaskRemoved(rootIntent: Intent?) {
+//        super.onTaskRemoved(rootIntent)
+//        // Stop the service and clear resources
+//        stopMqttService()
+//    }
+
     override fun onBind(intent: Intent?): IBinder? {
+        log.e("bind service")
         TODO("Not yet implemented")
     }
 
@@ -134,34 +180,145 @@ class PayHereMqttService : Service() {
         }
 
     private fun initService(
-        access: String,
+        access: String?,
         sid: String,
-        customerSN: String,
-        paxModel: String,
-        paxCsn: String,
-        isDebug: Boolean,
+        modelName: String,
+        sn: String,
+        pakegeName: String,
+        appVersion: String? = null,
+        osVersion: String? = null,
+        firmwareVersion: String? = null,
     ) {
         val deviceIdLong = getDeviceId(this).hashCode()
         startForeground(deviceIdLong, createNotification(this))
-        initRxMqtt(
+//        initRxMqtt(
+//            access = access,
+//            sid = sid,
+//            modelName = modelName,
+//            sn = sn,
+//            pakegeName = pakegeName,
+//            isDebug = isDebug,
+//        )
+        initStaus(
             access = access,
             sid = sid,
-            customerSN = customerSN,
-            paxModel = paxModel,
-            paxCsn = paxCsn,
-            isDebug = isDebug,
+            modelName = modelName,
+            sn = sn,
+            pakegeName = pakegeName,
+            platform = "android",
+            appVersion = appVersion,
+            osVersion = osVersion,
+            firmwareVersion = firmwareVersion,
         )
     }
 
+    private fun initStaus(
+        access: String? = null,
+        sid: String? = null,
+        modelName: String? = null,
+        sn: String? = null,
+        pakegeName: String? = null,
+        platform: String? = null,
+        appVersion: String? = null,
+        osVersion: String? = null,
+        firmwareVersion: String? = null,
+    ) {
+        if (statusJob?.isActive == true) return
+        statusJob =
+            CoroutineScope(Dispatchers.IO + coroutineExceptionHandler).launch {
+                while (true) {
+                    val callResponse: Call<Response<String>> =
+                        NetRetrofit()
+                            .getNetRetrofit()
+                            .patchMonitoring(
+                                accessToken = access ?: "",
+                                sid = sid ?: "",
+                                appIdentifier = sn ?: "",
+                                data =
+                                    ReqMonitorStatus(
+                                        status =
+                                            ReqStatusData(
+                                                appInfo =
+                                                    AppInfo(
+                                                        isActive = CommonFunction.isAppInForeground(this@PayHereMqttService),
+                                                        isFrozen = CommonFunction.isAppRunning(this@PayHereMqttService),
+                                                        appIdentifier = sn ?: "",
+                                                    ),
+                                                deviceInfo =
+                                                    DeviceInfo(
+                                                        memoryUsage = CommonFunction.getMemoryUse(),
+                                                        storageAvailable = CommonFunction.getStorageUse(),
+                                                        wifiName = CommonFunction.getCurrentWifiName(this@PayHereMqttService),
+                                                        ipAddress = CommonFunction.getLocalIPAddress(),
+                                                        wifiSignalStrength = CommonFunction.getWifiSignalStrength(this@PayHereMqttService),
+                                                        batteryLevel = CommonFunction.getBatteryPercentage(this@PayHereMqttService),
+                                                        batteryStatus = CommonFunction.getBatteryChargingStatus(this@PayHereMqttService),
+                                                    ),
+                                                versionInfo =
+                                                    VersionInfo(
+                                                        appVersion = appVersion,
+                                                        osVersion = osVersion,
+                                                        firmwareVersion = firmwareVersion,
+                                                    ),
+                                            ),
+                                    ),
+                            )
+
+                    callResponse.enqueue(
+                        object : Callback<Response<String>> {
+                            override fun onResponse(
+                                call: Call<Response<String>>,
+                                response: Response<Response<String>>,
+                            ) {
+                                log.d("response: ${response.body()}")
+                            }
+
+                            override fun onFailure(
+                                call: Call<Response<String>>,
+                                t: Throwable,
+                            ) {
+                                log.e("error: ${t.message}")
+                            }
+                        },
+                    )
+                    delay(1000 * 60)
+                }
+            }
+        statusJob?.start()
+    }
+
     private fun initRxMqtt(
-        access: String,
-        sid: String,
-        customerSN: String,
-        paxModel: String,
-        paxCsn: String,
+        access: String? = null,
+        sid: String? = null,
+        modelName: String? = null,
+        sn: String? = null,
+        pakegeName: String? = null,
+        platform: String? = null,
         isDebug: Boolean,
     ) {
-        if (sid.isEmpty()) return
+        log.e("sid: $sid")
+        var finalAccess = if (access?.isEmpty() == true) MQTT_PERM_TOKEN else access
+        var finalSid = sid
+        var finalModelName = modelName
+        var finalSn = sn
+        var finalPakegeName = pakegeName
+        var finalIsDebug = isDebug
+        if (finalSid?.isEmpty() == true) {
+//            stopMqttService()
+//            return
+            val sharedPreferences: SharedPreferences = getSharedPreferences(PAYHEREMQTTSERVICEPREFS, Context.MODE_PRIVATE)
+            finalSid = sharedPreferences.getString("sid", "") ?: ""
+            finalAccess = sharedPreferences.getString("access", "") ?: ""
+            finalModelName = sharedPreferences.getString("modelName", "") ?: ""
+            finalSn = sharedPreferences.getString("sn", "") ?: ""
+            finalIsDebug = sharedPreferences.getBoolean("isDebug", false)
+            if (finalAccess.isEmpty()) {
+                return
+            }
+//            if (finalSid.isEmpty()) {
+//                return
+//            }
+        }
 //        val mqttMessage =
 //            ReqMqtt(
 //                eventAt = System.currentTimeMillis().toString(),
@@ -177,21 +334,18 @@ class PayHereMqttService : Service() {
 //            )
 
         if (PayhereMqttFactory.setMqttCallBackConnect(
-                context = this,
-                access = access,
-                sid = sid,
+                context = this@PayHereMqttService,
+                access = finalAccess,
+                sid = finalSid,
 //                reqMqtt = mqttMessage,
-                csn = paxCsn,
-                model = paxModel ?: "",
-                clientEndpoint = if (isDebug)"a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
+                csn = finalSn,
+                model = finalModelName ?: "",
+                pakegeName = finalPakegeName ?: "",
+                clientEndpoint = if (finalIsDebug) "a3khqefygzmvss-ats.iot.ap-northeast-2.amazonaws.com" else "a39oosdvor8dzt-ats.iot.ap-northeast-2.amazonaws.com",
+                platform = platform,
             )
         ) {
             scope.launch {
-//                PayhereMqttFactory.startCycleStatus(
-//                    delay = 60,
-//                    context = this@PayHereMqttService,
-//                )
-
                 PayhereMqttFactory.messageArrived.collect { (topic, data) ->
                     if (data.isEmpty()) return@collect
                     val baseRequest = gson.fromJson(data, MqttBaseRequest::class.java)
@@ -231,12 +385,6 @@ class PayHereMqttService : Service() {
             }
         }
     }
-
-//    private inline fun <reified T> parseDto(data: String): T {
-//        val type = object : TypeToken<MqttBaseRequest<T>>() {}.type
-//        val result: MqttBaseRequest<T> = gson.fromJson(data, type)
-//        return result.message
-//    }
 
     private fun createNotification(ctx: Context): Notification {
         log.e("application is running: $appIdentifier")

@@ -1,5 +1,6 @@
 package com.payhere.mqtt
 
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -8,6 +9,9 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Debug
+import android.os.Handler
+import android.os.Looper
 import android.preference.PreferenceManager
 import android.view.KeyEvent
 import kotlinx.coroutines.CoroutineScope
@@ -18,13 +22,14 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.RandomAccessFile
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.SocketException
+import kotlin.math.abs
 import kotlin.system.exitProcess
 
 object CommonFunction {
-
     fun getLocalIPAddress(): String? {
         try {
             val en = NetworkInterface.getNetworkInterfaces()
@@ -43,67 +48,8 @@ object CommonFunction {
 
         return null
     }
-//    fun getWifiSignalStrength(context: Context): Int {
-//        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-//        val wifiInfo = wifiManager.connectionInfo
-//
-//        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-//        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-//            val networkCapabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
-//            var wifi = 0
-//            if (networkCapabilities != null && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-//                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-//                    wifi = networkCapabilities.signalStrength
-//                }
-//            }
-//            wifi
-//        } else {
-//            WifiManager.calculateSignalLevel(wifiInfo.rssi, 100)
-//        }
-//    }
 
-    fun getBatteryStatus(context: Context) {
-        val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val batteryStatus: Intent? = context.registerReceiver(null, intentFilter)
-
-        batteryStatus?.let { intent ->
-            val status: Int = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-            val isCharging: Boolean =
-                status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    status == BatteryManager.BATTERY_STATUS_FULL
-
-            val chargePlug: Int = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)
-            val usbCharge: Boolean = chargePlug == BatteryManager.BATTERY_PLUGGED_USB
-            val acCharge: Boolean = chargePlug == BatteryManager.BATTERY_PLUGGED_AC
-
-            val batteryPct: Float? =
-                intent.let { i ->
-                    val level: Int = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                    val scale: Int = i.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                    level * 100 / scale.toFloat()
-                }
-
-            log.e("Is device charging: $isCharging")
-            log.e("USB charge: $usbCharge")
-            log.e("AC charge: $acCharge")
-            log.e("Battery percentage: $batteryPct%")
-        }
-    }
-
-    fun getMemoryUse() : String{
-        val runtime = Runtime.getRuntime()
-        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
-        val freeMemory = runtime.freeMemory() / 1024 / 1024
-        val totalMemory = runtime.totalMemory() / 1024 / 1024
-        val maxMemory = runtime.maxMemory() / 1024 / 1024
-        log.d("Memory", "Used Memory: $usedMemory MB")
-        log.d("Memory", "Free Memory: $freeMemory MB")
-        log.d("Memory", "Total Memory: $totalMemory MB")
-        log.d("Memory", "Max Memory: $maxMemory MB")
-        return usedMemory.toString()
-    }
-
-    fun getStorageUse() : Int {
+    fun getStorageUse(): Int {
         val freeSpace = Runtime.getRuntime().freeMemory()
         val totalSpace = Runtime.getRuntime().totalMemory()
         val usedSpace = totalSpace - freeSpace
@@ -112,6 +58,7 @@ object CommonFunction {
         log.d("Storage", "Total Storage: $totalSpace")
         return freeSpace.toInt()
     }
+
     fun getBatteryPercentage(context: Context): Int {
         val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
@@ -177,21 +124,6 @@ object CommonFunction {
         }
     }
 
-//    fun deleteDirFlow(dir: File?): Flow<Boolean> = flow {
-//        if (dir != null && dir.isDirectory) {
-//            val children = dir.list()
-//            var success = true
-//            for (child in children) {
-//                success = success && deleteDir(File(dir, child))
-//            }
-//            emit(dir.delete())
-//        } else if (dir != null && dir.isFile) {
-//            emit(dir.delete())
-//        } else {
-//            emit(false)
-//        }
-//    }
-
     fun clearCacheWithFlow(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -209,15 +141,20 @@ object CommonFunction {
         }
     }
 
-    fun deleteDirFlow(dir: File?): Flow<Boolean> = flow {
-        emit(dir != null && dir.deleteRecursively())
-    }
+    fun deleteDirFlow(dir: File?): Flow<Boolean> =
+        flow {
+            emit(dir != null && dir.deleteRecursively())
+        }
 
     fun clearStorageWithFlow(context: Context) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 // Clear SharedPreferences
-                PreferenceManager.getDefaultSharedPreferences(context).edit().clear().apply();
+                PreferenceManager
+                    .getDefaultSharedPreferences(context)
+                    .edit()
+                    .clear()
+                    .apply()
 
                 // Delete cache directory
                 val cacheDir: File = context.cacheDir
@@ -251,7 +188,7 @@ object CommonFunction {
     }
 
     fun keyCodeToNumber(keyCode: Int): String {
-        return when(keyCode) {
+        return when (keyCode) {
             KeyEvent.KEYCODE_0 -> return "0"
             KeyEvent.KEYCODE_1 -> return "1"
             KeyEvent.KEYCODE_2 -> return "2"
@@ -268,4 +205,159 @@ object CommonFunction {
             else -> return ""
         }
     }
+
+    fun initCpuUsageMonitor(context: Context) {
+        activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    }
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val updateInterval = 1000L // 1 second
+    private var activityManager: ActivityManager? = null
+
+    private val updateRunnable =
+        object : Runnable {
+            override fun run() {
+                logCpuUsage()
+                handler.postDelayed(this, updateInterval)
+            }
+        }
+
+    fun startMonitoring() {
+        handler.post(updateRunnable)
+    }
+
+    fun stopMonitoring() {
+        handler.removeCallbacks(updateRunnable)
+    }
+
+    fun logCpuUsage(): String {
+        val pid = android.os.Process.myPid()
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager?.getMemoryInfo(memoryInfo)
+        val cpuUsage = Debug.threadCpuTimeNanos() / 1000000 // Convert to milliseconds
+        return cpuUsage.toString()
+    }
+
+    fun getCpuUsage(context: Context): Float {
+        val pid = android.os.Process.myPid()
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memoryInfo = ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memoryInfo)
+
+        val cpuTime1 = Debug.threadCpuTimeNanos() / 1000000 // Convert to milliseconds
+        val uptime1 = System.currentTimeMillis()
+        log.e("CPU Time 1: $cpuTime1")
+        log.e("Uptime 1: $uptime1")
+
+        // Sleep for a short interval to measure CPU usage over time
+        Thread.sleep(360)
+
+        val cpuTime2 = Debug.threadCpuTimeNanos() / 1000000 // Convert to milliseconds
+        val uptime2 = System.currentTimeMillis()
+
+        log.e("CPU Time 2: $cpuTime2")
+        log.e("Uptime 2: $uptime2")
+
+        val cpuDelta = cpuTime2 - cpuTime1
+        val uptimeDelta = uptime2 - uptime1
+
+        return if (uptimeDelta > 0) {
+            (cpuDelta.toFloat() / uptimeDelta.toFloat()) * 100
+        } else {
+            0f
+        }
+    }
+
+    private fun getTotalCpuTime(): Long {
+        try {
+            RandomAccessFile("/proc/stat", "r").use { reader ->
+                val load = reader.readLine().split(" ")
+                return load[2].toLong() + load[3].toLong() + load[4].toLong() + load[5].toLong() +
+                    load[6].toLong() + load[7].toLong() + load[8].toLong()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return 0
+    }
+
+    private fun getProcessCpuTime(pid: Int): Long {
+        try {
+            RandomAccessFile("/proc/$pid/stat", "r").use { reader ->
+                val load = reader.readLine().split(" ")
+                return load[13].toLong() + load[14].toLong() + load[15].toLong() + load[16].toLong()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return 0
+    }
+
+    fun isAppRunning(context: Context): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningAppProcesses = activityManager.runningAppProcesses ?: return false
+        val packageName = context.packageName
+        for (processInfo in runningAppProcesses) {
+            if (processInfo.processName == packageName) {
+                return true
+            }
+        }
+        return false
+    }
+    fun isAppInForeground(context: Context): Boolean {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val runningAppProcesses = activityManager.runningAppProcesses ?: return false
+        val packageName = context.packageName
+        for (processInfo in runningAppProcesses) {
+            if (processInfo.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND && processInfo.processName == packageName) {
+                return true
+            }
+        }
+        return false
+    }
+
+    fun getMemoryUse(): String {
+        val runtime = Runtime.getRuntime()
+        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+        val freeMemory = runtime.freeMemory() / 1024 / 1024
+        val totalMemory = runtime.totalMemory() / 1024 / 1024
+        val maxMemory = runtime.maxMemory() / 1024 / 1024
+        return usedMemory.toString()
+    }
+
+    fun getCurrentWifiName(context: Context): String? {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiInfo = wifiManager.connectionInfo
+        return wifiInfo.ssid?.removePrefix("\"")?.removeSuffix("\"")
+    }
+
+    fun getWifiSignalStrength(context: Context): Int {
+        val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        val wifiInfo = wifiManager.connectionInfo
+
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val networkCapabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
+            var wifi = 0
+            if (networkCapabilities != null && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    wifi = networkCapabilities.signalStrength
+                }
+            }
+            abs(wifi)
+        } else {
+            WifiManager.calculateSignalLevel(wifiInfo.rssi, 100)
+        }
+    }
+
+    fun getBatteryChargingStatus(context: Context): String {
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val isCharging = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            batteryManager.isCharging
+        } else {
+            false
+        }
+        return if (isCharging) "Charging" else "Not Charging"
+    }
+
 }
